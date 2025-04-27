@@ -1,0 +1,26 @@
+{
+  "name": "@fcg-labs/iolift",
+  "version": "1.0.0",
+  "description": "Babel plugin for @fcg-labs/iolift",
+  "main": "index.js",
+  "scripts": {
+    "test": "cd test && jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fcg-labs/iolift": "../"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.25.9",
+    "@babel/core": "^7.26.0",
+    "@babel/node": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "@types/shelljs": "^0.8.15",
+    "babel-cli": "^6.26.0",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "shelljs": "^0.8.5"
+  }
+}
