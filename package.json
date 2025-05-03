@@ -1,6 +1,6 @@
 {
   "name": "@fcg-labs/iolift",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "FCGLabs Codepush for RN",
   "main": "bin/src/IOLift.js",
   "types": "bin/src/IOLift.d.ts",
@@ -25,7 +25,9 @@
     "scripts",
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "versioning",
+    "test"
   ],
   "scripts": {
     "clean": "shx rm -rf bin",
