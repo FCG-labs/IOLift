@@ -1,15 +1,24 @@
 {
     "compilerOptions": {
-        "target": "ES5",
+        "target": "ES6",
         "module": "commonjs",
         "lib": ["es6"],
-        "noImplicitAny": true,
+        "noImplicitAny": false,
         "noEmitOnError": true,
         "moduleResolution": "node",
         "sourceMap": true,
-        "rootDir": "test",
+        "rootDir": "./",
         "outDir": "bin",
-        "removeComments": true
+        "jsx": "react",
+        "removeComments": true,
+        "baseUrl": "src",
+        "declaration": true,
+        "skipLibCheck": true,
+        "paths": {
+            "~/*": ["*"],
+            "@/*": ["*"],
+        },
+        "esModuleInterop": true,
     },
     "exclude": [
         "Examples/CodePushDemoApp",

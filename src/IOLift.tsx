@@ -1,13 +1,24 @@
-import { Alert } from "./AlertAdapter";
-import { AppState, Platform } from "react-native";
+/* eslint-disable @typescript-eslint/no-namespace */
+import React from 'react';
+import { AppState, Platform, NativeModules } from "react-native";
 import log from "./logging";
 import hoistStatics from 'hoist-non-react-statics';
-import { SemverVersioning } from './versioning/SemverVersioning'
+import { SemverVersioning } from '../versioning/SemverVersioning'
+import packageMixins from "./package-mixins";
 
-let NativeCodePush = require("react-native").NativeModules.CodePush;
-const PackageMixins = require("./package-mixins")(NativeCodePush);
+const NativeCodePush = NativeModules.CodePush;
+const PackageMixins = packageMixins(NativeCodePush);
 
-const DEPLOYMENT_KEY = 'deprecated_deployment_key';
+// ① React / Component 유무 검증
+if (!React || typeof React.Component !== 'function') {
+  throw new Error(
+    `Unable to find the "React.Component" class.\n` +
+    `Please ensure:\n` +
+    ` 1) React and React Native are properly installed (React>=16, RN>=0.60),\n` +
+    ` 2) Or call CodePush.sync() directly instead of using the @codePush decorator.`
+  );
+}
+
 
 async function checkForUpdate(handleBinaryVersionMismatchCallback = null) {
   /*
@@ -17,7 +28,7 @@ async function checkForUpdate(handleBinaryVersionMismatchCallback = null) {
    * and the hash of the currently running update (if there is one).
    * This allows the client to only receive updates which are targetted
    * for their specific deployment and version and which are actually
-   * different from the CodePush update they have already installed.
+   * different from the IOLift update they have already installed.
    */
   const nativeConfig = await getConfiguration();
 
@@ -60,7 +71,7 @@ async function checkForUpdate(handleBinaryVersionMismatchCallback = null) {
       if (updateChecker) {
         const { update_info } = await updateChecker(updateRequest);
 
-        return mapToRemotePackageMetadata(update_info);
+        return update_info;
       } else {
         /**
          * `releaseHistory`
@@ -70,7 +81,7 @@ async function checkForUpdate(handleBinaryVersionMismatchCallback = null) {
 
         /**
          * `runtimeVersion`
-         * The version of currently running CodePush update. (It can be undefined if the app is running without CodePush update.)
+         * The version of currently running IOLift update. (It can be undefined if the app is running without IOLift update.)
          * @type {string|undefined}
          */
         const runtimeVersion = updateRequest.label;
@@ -80,18 +91,18 @@ async function checkForUpdate(handleBinaryVersionMismatchCallback = null) {
         const shouldRollbackToBinary = versioning.shouldRollbackToBinary(runtimeVersion)
         if (shouldRollbackToBinary) {
           // Reset to latest major version and restart
-          CodePush.clearUpdates();
-          CodePush.allowRestart();
-          CodePush.restartApp();
+          IOLift.clearUpdates();
+          IOLift.allowRestart();
+          IOLift.restartApp();
         }
 
         const [latestVersion, latestReleaseInfo] = versioning.findLatestRelease();
         const isMandatory = versioning.checkIsMandatory(runtimeVersion);
 
         /**
-         * Convert the update information decided from `ReleaseHistoryInterface` to be passed to the library core (original CodePush library).
+         * Convert the update information decided from `ReleaseHistoryInterface` to be passed to the library core (original IOLift library).
          *
-         * @type {UpdateCheckResponse} the interface required by the original CodePush library.
+         * @type {UpdateCheckResponse} the interface required by the original IOLift library.
          */
         const updateInfo = {
           download_url: latestReleaseInfo.downloadUrl,
@@ -108,7 +119,7 @@ async function checkForUpdate(handleBinaryVersionMismatchCallback = null) {
           target_binary_range: updateRequest.app_version,
           /**
            * Retrieve the update version from the ReleaseHistory and store it in the label.
-           * This information can be accessed at runtime through the CodePush bundle metadata.
+           * This information can be accessed at runtime through the IOLift bundle metadata.
            */
           label: latestVersion,
           // `false` should be passed to work properly
@@ -123,7 +134,7 @@ async function checkForUpdate(handleBinaryVersionMismatchCallback = null) {
           should_run_binary_version: false,
         };
 
-        return mapToRemotePackageMetadata(updateInfo);
+        return updateInfo;
       }
     } catch (error) {
       log(`An error has occurred at update checker :`);
@@ -139,7 +150,7 @@ async function checkForUpdate(handleBinaryVersionMismatchCallback = null) {
    * 1) The server said there isn't an update. This is the most common case.
    * 2) The server said there is an update but it requires a newer binary version.
    *    This would occur when end-users are running an older binary version than
-   *    is available, and CodePush is making sure they don't get an update that
+   *    is available, and IOLift is making sure they don't get an update that
    *    potentially wouldn't be compatible with what they are running.
    * 3) The server said there is an update, but the update's hash is the same as
    *    the currently running update. This should _never_ happen, unless there is a
@@ -169,53 +180,16 @@ async function checkForUpdate(handleBinaryVersionMismatchCallback = null) {
   }
 }
 
-/**
- * @param updateInfo {UpdateCheckResponse}
- * @return {RemotePackage | null}
- */
-function mapToRemotePackageMetadata(updateInfo) {
-  if (!updateInfo) {
-    return null;
-  } else if (!updateInfo.download_url) {
-    log("download_url is missed in the release history.");
-    return null;
-  } else if (!updateInfo.is_available) {
-    return null;
-  }
-
-  // refer to `RemotePackage` type inside code-push SDK
-  return {
-    deploymentKey: DEPLOYMENT_KEY,
-    description: updateInfo.description ?? '',
-    label: updateInfo.label ?? '',
-    appVersion: updateInfo.target_binary_range ?? '',
-    isMandatory: updateInfo.is_mandatory ?? false,
-    packageHash: updateInfo.package_hash ?? '',
-    packageSize: updateInfo.package_size ?? 0,
-    downloadUrl: updateInfo.download_url ?? '',
-  };
-}
-
-const getConfiguration = (() => {
-  let config;
-  return async function getConfiguration() {
-    if (config) {
-      return config;
-    } else if (testConfig) {
-      return testConfig;
-    } else {
-      config = await NativeCodePush.getConfiguration();
-      return config;
-    }
-  }
-})();
+const getConfiguration = async () => {
+  return await NativeCodePush.getConfiguration()
+};
 
 async function getCurrentPackage() {
-  return await getUpdateMetadata(CodePush.UpdateState.LATEST);
+  return await getUpdateMetadata(IOLift.UpdateState.LATEST);
 }
 
 async function getUpdateMetadata(updateState) {
-  let updateMetadata = await NativeCodePush.getUpdateMetadata(updateState || CodePush.UpdateState.RUNNING);
+  let updateMetadata = await NativeCodePush.getUpdateMetadata(updateState || IOLift.UpdateState.RUNNING);
   if (updateMetadata) {
     updateMetadata = {...PackageMixins.local, ...updateMetadata};
     updateMetadata.failedInstall = await NativeCodePush.isFailedUpdate(updateMetadata.packageHash);
@@ -245,17 +219,17 @@ async function notifyApplicationReadyInternal() {
   return statusReport;
 }
 
-async function tryReportStatus(statusReport, retryOnAppResume) {
+async function tryReportStatus(statusReport:any, retryOnAppResume?:any) {
   try {
     if (statusReport.appVersion) {
       log(`Reporting binary update (${statusReport.appVersion})`);
     } else {
       const label = statusReport.package.label;
       if (statusReport.status === "DeploymentSucceeded") {
-        log(`Reporting CodePush update success (${label})`);
+        log(`Reporting IOLift update success (${label})`);
         sharedCodePushOptions?.onUpdateSuccess(label);
       } else {
-        log(`Reporting CodePush update rollback (${label})`);
+        log(`Reporting IOLift update rollback (${label})`);
         await NativeCodePush.setLatestRollbackInfo(statusReport.package.packageHash);
         sharedCodePushOptions?.onUpdateRollback(label);
       }
@@ -295,9 +269,9 @@ async function shouldUpdateBeIgnored(remotePackage, syncOptions) {
   }
 
   if (typeof rollbackRetryOptions !== "object") {
-    rollbackRetryOptions = CodePush.DEFAULT_ROLLBACK_RETRY_OPTIONS;
+    rollbackRetryOptions = IOLift.DEFAULT_ROLLBACK_RETRY_OPTIONS;
   } else {
-    rollbackRetryOptions = { ...CodePush.DEFAULT_ROLLBACK_RETRY_OPTIONS, ...rollbackRetryOptions };
+    rollbackRetryOptions = { ...IOLift.DEFAULT_ROLLBACK_RETRY_OPTIONS, ...rollbackRetryOptions };
   }
 
   if (!validateRollbackRetryOptions(rollbackRetryOptions)) {
@@ -347,21 +321,12 @@ function validateRollbackRetryOptions(rollbackRetryOptions) {
   return true;
 }
 
-let testConfig;
-
-// This function is only used for tests. Replaces the default SDK, configuration and native bridge
-function setUpTestDependencies(testSdk, providedTestConfig, testNativeBridge) {
-  if (testSdk) module.exports.AcquisitionSdk = testSdk;
-  if (providedTestConfig) testConfig = providedTestConfig;
-  if (testNativeBridge) NativeCodePush = testNativeBridge;
-}
-
 async function restartApp(onlyIfUpdateIsPending = false) {
   NativeCodePush.restartApp(onlyIfUpdateIsPending);
 }
 
 // This function allows only one syncInternal operation to proceed at any given time.
-// Parallel calls to sync() while one is ongoing yields CodePush.SyncStatus.SYNC_IN_PROGRESS.
+// Parallel calls to sync() while one is ongoing yields IOLift.SyncStatus.SYNC_IN_PROGRESS.
 const sync = (() => {
   let syncInProgress = false;
   const setSyncCompleted = () => { syncInProgress = false; };
@@ -390,9 +355,9 @@ const sync = (() => {
 
     if (syncInProgress) {
       typeof syncStatusCallbackWithTryCatch === "function"
-        ? syncStatusCallbackWithTryCatch(CodePush.SyncStatus.SYNC_IN_PROGRESS)
+        ? syncStatusCallbackWithTryCatch(IOLift.SyncStatus.SYNC_IN_PROGRESS)
         : log("Sync already in progress.");
-      return Promise.resolve(CodePush.SyncStatus.SYNC_IN_PROGRESS);
+      return Promise.resolve(IOLift.SyncStatus.SYNC_IN_PROGRESS);
     }
 
     syncInProgress = true;
@@ -420,8 +385,8 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
     deploymentKey: null,
     ignoreFailedUpdates: true,
     rollbackRetryOptions: null,
-    installMode: CodePush.InstallMode.ON_NEXT_RESTART,
-    mandatoryInstallMode: CodePush.InstallMode.IMMEDIATE,
+    installMode: IOLift.InstallMode.ON_NEXT_RESTART,
+    mandatoryInstallMode: IOLift.InstallMode.IMMEDIATE,
     minimumBackgroundDuration: 0,
     updateDialog: null,
     ...options
@@ -431,28 +396,28 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
     ? syncStatusChangeCallback
     : (syncStatus) => {
         switch(syncStatus) {
-          case CodePush.SyncStatus.CHECKING_FOR_UPDATE:
+          case IOLift.SyncStatus.CHECKING_FOR_UPDATE:
             log("Checking for update.");
             break;
-          case CodePush.SyncStatus.AWAITING_USER_ACTION:
+          case IOLift.SyncStatus.AWAITING_USER_ACTION:
             log("Awaiting user action.");
             break;
-          case CodePush.SyncStatus.DOWNLOADING_PACKAGE:
+          case IOLift.SyncStatus.DOWNLOADING_PACKAGE:
             log("Downloading package.");
             break;
-          case CodePush.SyncStatus.INSTALLING_UPDATE:
+          case IOLift.SyncStatus.INSTALLING_UPDATE:
             log("Installing update.");
             break;
-          case CodePush.SyncStatus.UP_TO_DATE:
+          case IOLift.SyncStatus.UP_TO_DATE:
             log("App is up to date.");
             break;
-          case CodePush.SyncStatus.UPDATE_IGNORED:
+          case IOLift.SyncStatus.UPDATE_IGNORED:
             log("User cancelled the update.");
             break;
-          case CodePush.SyncStatus.UPDATE_INSTALLED:
-            if (resolvedInstallMode == CodePush.InstallMode.ON_NEXT_RESTART) {
+          case IOLift.SyncStatus.UPDATE_INSTALLED:
+            if (resolvedInstallMode == IOLift.InstallMode.ON_NEXT_RESTART) {
               log("Update is installed and will be run on the next app restart.");
-            } else if (resolvedInstallMode == CodePush.InstallMode.ON_NEXT_RESUME) {
+            } else if (resolvedInstallMode == IOLift.InstallMode.ON_NEXT_RESUME) {
               if (syncOptions.minimumBackgroundDuration > 0) {
                 log(`Update is installed and will be run after the app has been in the background for at least ${syncOptions.minimumBackgroundDuration} seconds.`);
               } else {
@@ -460,7 +425,7 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
               }
             }
             break;
-          case CodePush.SyncStatus.UNKNOWN_ERROR:
+          case IOLift.SyncStatus.UNKNOWN_ERROR:
             log("An unknown error occurred.");
             break;
         }
@@ -468,14 +433,14 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
 
   let remotePackageLabel;
   try {
-    await CodePush.notifyApplicationReady();
+    await IOLift.notifyAppReady();
 
-    syncStatusChangeCallback(CodePush.SyncStatus.CHECKING_FOR_UPDATE);
+    syncStatusChangeCallback(IOLift.SyncStatus.CHECKING_FOR_UPDATE);
     const remotePackage = await checkForUpdate(handleBinaryVersionMismatchCallback);
     remotePackageLabel = remotePackage?.label;
 
     const doDownloadAndInstall = async () => {
-      syncStatusChangeCallback(CodePush.SyncStatus.DOWNLOADING_PACKAGE);
+      syncStatusChangeCallback(IOLift.SyncStatus.DOWNLOADING_PACKAGE);
       sharedCodePushOptions.onDownloadStart?.(remotePackageLabel);
 
       const localPackage = await remotePackage.download(downloadProgressCallback);
@@ -485,12 +450,12 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
       // Determine the correct install mode based on whether the update is mandatory or not.
       resolvedInstallMode = localPackage.isMandatory ? syncOptions.mandatoryInstallMode : syncOptions.installMode;
 
-      syncStatusChangeCallback(CodePush.SyncStatus.INSTALLING_UPDATE);
+      syncStatusChangeCallback(IOLift.SyncStatus.INSTALLING_UPDATE);
       await localPackage.install(resolvedInstallMode, syncOptions.minimumBackgroundDuration, () => {
-        syncStatusChangeCallback(CodePush.SyncStatus.UPDATE_INSTALLED);
+        syncStatusChangeCallback(IOLift.SyncStatus.UPDATE_INSTALLED);
       });
 
-      return CodePush.SyncStatus.UPDATE_INSTALLED;
+      return IOLift.SyncStatus.UPDATE_INSTALLED;
     };
 
     const updateShouldBeIgnored = await shouldUpdateBeIgnored(remotePackage, syncOptions);
@@ -500,21 +465,21 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
           log("An update is available, but it is being ignored due to having been previously rolled back.");
       }
 
-      const currentPackage = await CodePush.getCurrentPackage();
+      const currentPackage = await getCurrentPackage();
       if (currentPackage && currentPackage.isPending) {
-        syncStatusChangeCallback(CodePush.SyncStatus.UPDATE_INSTALLED);
-        return CodePush.SyncStatus.UPDATE_INSTALLED;
+        syncStatusChangeCallback(IOLift.SyncStatus.UPDATE_INSTALLED);
+        return IOLift.SyncStatus.UPDATE_INSTALLED;
       } else {
-        syncStatusChangeCallback(CodePush.SyncStatus.UP_TO_DATE);
-        return CodePush.SyncStatus.UP_TO_DATE;
+        syncStatusChangeCallback(IOLift.SyncStatus.UP_TO_DATE);
+        return IOLift.SyncStatus.UP_TO_DATE;
       }
     } else if (syncOptions.updateDialog) {
       // updateDialog supports any truthy value (e.g. true, "goo", 12),
       // but we should treat a non-object value as just the default dialog
       if (typeof syncOptions.updateDialog !== "object") {
-        syncOptions.updateDialog = CodePush.DEFAULT_UPDATE_DIALOG;
+        syncOptions.updateDialog = IOLift.DEFAULT_UPDATE_DIALOG;
       } else {
-        syncOptions.updateDialog = { ...CodePush.DEFAULT_UPDATE_DIALOG, ...syncOptions.updateDialog };
+        syncOptions.updateDialog = { ...IOLift.DEFAULT_UPDATE_DIALOG, ...syncOptions.updateDialog };
       }
 
       return await new Promise((resolve, reject) => {
@@ -534,8 +499,8 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
           dialogButtons.push({
             text: syncOptions.updateDialog.optionalIgnoreButtonLabel,
             onPress: () => {
-              syncStatusChangeCallback(CodePush.SyncStatus.UPDATE_IGNORED);
-              resolve(CodePush.SyncStatus.UPDATE_IGNORED);
+              syncStatusChangeCallback(IOLift.SyncStatus.UPDATE_IGNORED);
+              resolve(IOLift.SyncStatus.UPDATE_IGNORED);
             }
           });
         }
@@ -556,21 +521,18 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
           message += `${syncOptions.updateDialog.descriptionPrefix} ${remotePackage.description}`;
         }
 
-        syncStatusChangeCallback(CodePush.SyncStatus.AWAITING_USER_ACTION);
-        Alert.alert(syncOptions.updateDialog.title, message, dialogButtons);
+        syncStatusChangeCallback(IOLift.SyncStatus.AWAITING_USER_ACTION);
       });
     } else {
       return await doDownloadAndInstall();
     }
   } catch (error) {
-    syncStatusChangeCallback(CodePush.SyncStatus.UNKNOWN_ERROR);
+    syncStatusChangeCallback(IOLift.SyncStatus.UNKNOWN_ERROR);
     sharedCodePushOptions?.onSyncError(remotePackageLabel ?? 'unknown', error);
     log(error.message);
     throw error;
   }
 };
-
-let CodePush;
 
 /**
  * @callback releaseHistoryFetcher
@@ -655,26 +617,7 @@ const sharedCodePushOptions = {
   },
 }
 
-function codePushify(options = {}) {
-  let React;
-  let ReactNative = require("react-native");
-
-  try { React = require("react"); } catch (e) { }
-  if (!React) {
-    try { React = ReactNative.React; } catch (e) { }
-    if (!React) {
-      throw new Error("Unable to find the 'React' module.");
-    }
-  }
-
-  if (!React.Component) {
-    throw new Error(
-`Unable to find the "Component" class, please either:
-1. Upgrade to a newer version of React Native that supports it, or
-2. Call the codePush.sync API in your component instead of using the @codePush decorator`
-    );
-  }
-
+function IOLift(options: CodePushOptions = {checkFrequency: IOLift.CheckFrequency.ON_APP_START, releaseHistoryFetcher: undefined}) {
   if (options.updateChecker && !options.releaseHistoryFetcher) {
     throw new Error('If you want to use `updateChecker`, pass a no-op function to releaseHistoryFetcher option. (e.g. `releaseHistoryFetcher: async () => ({})`)');
   }
@@ -691,14 +634,16 @@ function codePushify(options = {}) {
 
   const decorator = (RootComponent) => {
     class CodePushComponent extends React.Component {
+      rootComponentRef: React.RefObject<any>;
+
       constructor(props) {
         super(props);
         this.rootComponentRef = React.createRef();
       }
 
       componentDidMount() {
-        if (options.checkFrequency === CodePush.CheckFrequency.MANUAL) {
-          CodePush.notifyAppReady();
+        if (options.checkFrequency === IOLift.CheckFrequency.MANUAL) {
+          IOLift.notifyAppReady();
         } else {
           const rootComponentInstance = this.rootComponentRef.current;
 
@@ -717,12 +662,12 @@ function codePushify(options = {}) {
             handleBinaryVersionMismatchCallback = rootComponentInstance.codePushOnBinaryVersionMismatch.bind(rootComponentInstance);
           }
 
-          CodePush.sync(options, syncStatusCallback, downloadProgressCallback, handleBinaryVersionMismatchCallback);
+          IOLift.sync(options, syncStatusCallback, downloadProgressCallback, handleBinaryVersionMismatchCallback);
 
-          if (options.checkFrequency === CodePush.CheckFrequency.ON_APP_RESUME) {
-            ReactNative.AppState.addEventListener("change", (newState) => {
+          if (options.checkFrequency === IOLift.CheckFrequency.ON_APP_RESUME) {
+            AppState.addEventListener("change", (newState) => {
               if (newState === "active") {
-                CodePush.sync(options, syncStatusCallback, downloadProgressCallback);
+                IOLift.sync(options, syncStatusCallback, downloadProgressCallback);
               }
             });
           }
@@ -730,12 +675,26 @@ function codePushify(options = {}) {
       }
 
       render() {
-        const props = {...this.props};
+        // Create a properly typed props object with ref support
+        const props: React.ClassAttributes<any> & Record<string, any> = {
+          ...this.props
+        };
 
-        // We can set ref property on class components only (not stateless)
-        // Check it by render method
+        // Only set ref for class components
+        // Function components don't accept refs unless they're wrapped with forwardRef
         if (RootComponent.prototype && RootComponent.prototype.render) {
+          // It's a class component, we can set ref directly
           props.ref = this.rootComponentRef;
+        } else {
+          // For function components, we can't set ref directly
+          // Instead, add a warning in development
+          if (process.env.NODE_ENV !== 'production') {
+            console.error(
+              `CodePush: You're using a function component (${RootComponent.displayName || RootComponent.name || 'Component'}) with CodePush. ` +
+              `To use refs with function components, wrap your component with React.forwardRef() before applying the CodePush decorator.`
+            );
+          }
+          // We don't set props.ref for function components
         }
 
         return <RootComponent {...props} />
@@ -753,13 +712,8 @@ function codePushify(options = {}) {
   }
 }
 
-// If the "NativeCodePush" variable isn't defined, then
-// the app didn't properly install the native module,
-// and therefore, it doesn't make sense initializing
-// the JS interface when it wouldn't work anyways.
 if (NativeCodePush) {
-  CodePush = codePushify;
-  Object.assign(CodePush, {
+  Object.assign(IOLift, {
     checkForUpdate,
     getConfiguration,
     getCurrentPackage,
@@ -768,7 +722,6 @@ if (NativeCodePush) {
     notifyAppReady: notifyApplicationReady,
     notifyApplicationReady,
     restartApp,
-    setUpTestDependencies,
     sync,
     disallowRestart: NativeCodePush.disallow,
     allowRestart: NativeCodePush.allow,
@@ -784,9 +737,9 @@ if (NativeCodePush) {
     SyncStatus: {
       UP_TO_DATE: 0, // The running app is up-to-date
       UPDATE_INSTALLED: 1, // The app had an optional/mandatory update that was successfully downloaded and is about to be installed.
-      UPDATE_IGNORED: 2, // The app had an optional update and the end-user chose to ignore it
+      UPDATE_IGNORED: 2, // The app had an optional update which the end user chose to ignore.
       UNKNOWN_ERROR: 3,
-      SYNC_IN_PROGRESS: 4, // There is an ongoing "sync" operation in progress.
+      SYNC_IN_PROGRESS: 4, // There is an ongoing sync operation running which prevents the current call from being executed.
       CHECKING_FOR_UPDATE: 5,
       AWAITING_USER_ACTION: 6,
       DOWNLOADING_PACKAGE: 7,
@@ -822,7 +775,414 @@ if (NativeCodePush) {
     },
   });
 } else {
-  log("The CodePush module doesn't appear to be properly installed. Please double-check that everything is setup correctly.");
+  log("The IOLift module doesn't appear to be properly installed. Please double-check that everything is setup correctly.");
 }
 
-module.exports = CodePush;
+declare namespace IOLift {
+  const DEFAULT_ROLLBACK_RETRY_OPTIONS: RollbackRetryOptions;
+  /**
+   * Represents the default settings that will be used by the sync method if
+   * an update dialog is configured to be displayed.
+   */
+  const DEFAULT_UPDATE_DIALOG: UpdateDialog;
+
+  /**
+   * Asks the IOLift service whether the configured app deployment has an update available.
+   *
+   * @param deploymentKey The deployment key to use to query the IOLift server for an update.
+   *
+   * @param handleBinaryVersionMismatchCallback An optional callback for handling target binary version mismatch
+   */
+  function checkForUpdate(deploymentKey?: string, handleBinaryVersionMismatchCallback?: HandleBinaryVersionMismatchCallback): Promise<RemotePackage | null>;
+
+  /**
+   * Retrieves the metadata for an installed update (e.g. description, mandatory).
+   *
+   * @param updateState The state of the update you want to retrieve the metadata for. Defaults to UpdateState.RUNNING.
+   */
+  function getUpdateMetadata(updateState?: UpdateState): Promise<LocalPackage|null>;
+
+  /**
+   * Notifies the IOLift runtime that an installed update is considered successful.
+   */
+  function notifyAppReady(): Promise<StatusReport|void>;
+
+  /**
+   * Allow IOLift to restart the app.
+   */
+  function allowRestart(): void;
+
+  /**
+   * Forbid IOLift to restart the app.
+   */
+  function disallowRestart(): void;
+
+  /**
+   * Clear all downloaded IOLift updates.
+   * This is useful when switching to a different deployment which may have an older release than the current package.
+   * Note: we don’t recommend to use this method in scenarios other than that (IOLift will call
+   * this method automatically when needed in other cases) as it could lead to unpredictable behavior.
+   */
+  function clearUpdates(): void;
+
+  /**
+   * Immediately restarts the app.
+   *
+   * @param onlyIfUpdateIsPending Indicates whether you want the restart to no-op if there isn't currently a pending update.
+   */
+  function restartApp(onlyIfUpdateIsPending?: boolean): void;
+
+  /**
+   * Allows checking for an update, downloading it and installing it, all with a single call.
+   *
+   * @param options Options used to configure the end-user update experience (e.g. show an prompt?, install the update immediately?).
+   * @param syncStatusChangedCallback An optional callback that allows tracking the status of the sync operation, as opposed to simply checking the resolved state via the returned Promise.
+   * @param downloadProgressCallback An optional callback that allows tracking the progress of an update while it is being downloaded.
+   * @param handleBinaryVersionMismatchCallback An optional callback for handling target binary version mismatch
+   */
+  function sync(options?: SyncOptions, syncStatusChangedCallback?: SyncStatusChangedCallback, downloadProgressCallback?: DownloadProgressCallback, handleBinaryVersionMismatchCallback?: HandleBinaryVersionMismatchCallback): Promise<SyncStatus>;
+
+  /**
+   * Indicates when you would like an installed update to actually be applied.
+   */
+  enum InstallMode {
+      /**
+       * Indicates that you want to install the update and restart the app immediately.
+       */
+      IMMEDIATE,
+
+      /**
+       * Indicates that you want to install the update, but not forcibly restart the app.
+       */
+      ON_NEXT_RESTART,
+
+      /**
+       * Indicates that you want to install the update, but don't want to restart the app until the next time
+       * the end user resumes it from the background. This way, you don't disrupt their current session,
+       * but you can get the update in front of them sooner then having to wait for the next natural restart.
+       * This value is appropriate for silent installs that can be applied on resume in a non-invasive way.
+       */
+      ON_NEXT_RESUME,
+
+      /**
+       * Indicates that you want to install the update when the app is in the background,
+       * but only after it has been in the background for "minimumBackgroundDuration" seconds (0 by default),
+       * so that user context isn't lost unless the app suspension is long enough to not matter.
+       */
+      ON_NEXT_SUSPEND
+  }
+
+  /**
+   * Indicates the current status of a sync operation.
+   */
+  enum SyncStatus {
+      /**
+       * The app is up-to-date with the IOLift server.
+       */
+      UP_TO_DATE,
+
+      /**
+       * An available update has been installed and will be run either immediately after the
+       * syncStatusChangedCallback function returns or the next time the app resumes/restarts,
+       * depending on the InstallMode specified in SyncOptions
+       */
+      UPDATE_INSTALLED,
+
+      /**
+       * The app had an optional update which the end user chose to ignore.
+       * (This is only applicable when the updateDialog is used)
+       */
+      UPDATE_IGNORED,
+
+      /**
+       * The sync operation encountered an unknown error.
+       */
+      UNKNOWN_ERROR,
+
+      /**
+       * There is an ongoing sync operation running which prevents the current call from being executed.
+       */
+      SYNC_IN_PROGRESS,
+
+      /**
+       * The IOLift server is being queried for an update.
+       */
+      CHECKING_FOR_UPDATE,
+
+      /**
+       * An update is available, and a confirmation dialog was shown
+       * to the end user. (This is only applicable when the updateDialog is used)
+       */
+      AWAITING_USER_ACTION,
+
+      /**
+       * An available update is being downloaded from the IOLift server.
+       */
+      DOWNLOADING_PACKAGE,
+
+      /**
+       * An available update was downloaded and is about to be installed.
+       */
+      INSTALLING_UPDATE
+  }
+
+  /**
+   * Indicates the state that an update is currently in.
+   */
+  enum UpdateState {
+      /**
+       * Indicates that an update represents the
+       * version of the app that is currently running.
+       */
+      RUNNING,
+
+      /**
+       * Indicates than an update has been installed, but the
+       * app hasn't been restarted yet in order to apply it.
+       */
+      PENDING,
+
+      /**
+       * Indicates than an update represents the latest available
+       * release, and can be either currently running or pending.
+       */
+      LATEST
+  }
+
+  /**
+   * Indicates the status of a deployment (after installing and restarting).
+   */
+  enum DeploymentStatus {
+      /**
+       * The deployment failed (and was rolled back).
+       */
+      FAILED,
+
+      /**
+       * The deployment succeeded.
+       */
+      SUCCEEDED
+  }
+
+  /**
+   * Indicates when you would like to check for (and install) updates from the IOLift server.
+   */
+  enum CheckFrequency {
+      /**
+       * When the app is fully initialized (or more specifically, when the root component is mounted).
+       */
+      ON_APP_START,
+
+      /**
+       * When the app re-enters the foreground.
+       */
+      ON_APP_RESUME,
+
+      /**
+       * Don't automatically check for updates, but only do it when IOLift.sync() is manully called inside app code.
+       */
+      MANUAL
+  }
+}
+
+export interface DownloadProgressCallback {
+    (progress: DownloadProgress): void;
+}
+
+export interface SyncStatusChangedCallback {
+    (status: IOLift.SyncStatus): void;
+}
+
+export interface HandleBinaryVersionMismatchCallback {
+    (update: RemotePackage): void;
+}
+
+export interface UpdateCheckRequest {
+    app_version: string;
+    client_unique_id?: string;
+    is_companion?: boolean;
+    label?: string;
+    package_hash?: string;
+}
+
+export type ReleaseVersion = string;
+
+export interface ReleaseHistoryInterface {
+    [key: string]: ReleaseInfo;
+}
+
+export interface ReleaseInfo {
+    enabled: boolean;
+    mandatory: boolean;
+    downloadUrl: string;
+    packageHash: string;
+}
+
+export interface UpdateCheckResponse {
+    deploymentKey?: string;
+    download_url?: string;
+    description?: string;
+    is_available: boolean;
+    is_disabled?: boolean;
+    target_binary_range: string;
+    label?: string;
+    package_hash?: string;
+    package_size?: number;
+    should_run_binary_version?: boolean;
+    update_app_version?: boolean;
+    is_mandatory?: boolean;
+}
+
+export interface CodePushOptions extends SyncOptions {
+    checkFrequency: IOLift.CheckFrequency;
+    releaseHistoryFetcher: (updateRequest: UpdateCheckRequest) => Promise<ReleaseHistoryInterface>;
+    updateChecker?: (updateRequest: UpdateCheckRequest) => Promise<{ update_info: UpdateCheckResponse }>;
+    onUpdateSuccess?: (label: string) => void;
+    onUpdateRollback?: (label: string) => void;
+    onDownloadStart?: (label: string) => void;
+    onDownloadSuccess?: (label: string) => void;
+    onSyncError?: (label: string, error: Error) => void;
+}
+
+export interface SyncOptions {
+    deploymentKey?: string;
+    ignoreFailedUpdates?: boolean;
+    rollbackRetryOptions?: RollbackRetryOptions;
+    installMode?: IOLift.InstallMode;
+    mandatoryInstallMode?: IOLift.InstallMode;
+    minimumBackgroundDuration?: number;
+    updateDialog?: UpdateDialog | true;
+}
+
+export interface UpdateDialog {
+    appendReleaseDescription?: boolean;
+    descriptionPrefix?: string;
+    mandatoryContinueButtonLabel?: string;
+    mandatoryUpdateMessage?: string;
+    optionalIgnoreButtonLabel?: string;
+    optionalInstallButtonLabel?: string;
+    optionalUpdateMessage?: string;
+    title?: string;
+}
+
+export interface RollbackRetryOptions {
+    delayInHours?: number;
+    maxRetryAttempts?: number;
+}
+
+export interface DownloadProgress {
+    totalBytes: number;
+    receivedBytes: number;
+}
+
+export interface LocalPackage extends Package {
+    install(installMode: IOLift.InstallMode, minimumBackgroundDuration?: number): Promise<void>;
+}
+
+export interface Package {
+    appVersion: string;
+    deploymentKey: string;
+    description: string;
+    failedInstall: boolean;
+    isFirstRun: boolean;
+    isMandatory: boolean;
+    isPending: boolean;
+    label: string;
+    packageHash: string;
+    packageSize: number;
+}
+
+export interface RemotePackage extends Package {
+    download(downloadProgressCallback?: DownloadProgressCallback): Promise<LocalPackage>;
+    downloadUrl: string;
+}
+
+export interface StatusReport {
+  /**
+   * Whether the deployment succeeded or failed.
+   */
+  status: IOLift.DeploymentStatus;
+
+  /**
+   * The version of the app that was deployed (for a native app upgrade).
+   */
+  appVersion?: string;
+
+  /**
+   * Details of the package that was deployed (or attempted to).
+   */
+  package?: Package;
+
+  /**
+   * Deployment key used when deploying the previous package.
+   */
+  previousDeploymentKey?: string;
+
+  /**
+   * The label (v#) of the package that was upgraded from.
+   */
+  previousLabelOrAppVersion?: string;
+}
+
+export interface CliConfigInterface {
+  /**
+   * Interface that must be implemented to upload CodePush bundle files to an arbitrary infrastructure.
+   *
+   * Used in the `release` command, and must return a URL that allows downloading the file after the upload is completed.
+   * The URL is recorded in the ReleaseHistory, and the IOLift runtime library downloads the bundle file from this address.
+   *
+   * @param source The relative path of the generated bundle file. (e.g. build/bundleOutput/1087bc338fc45a961c...)
+   * @param platform The target platform of the bundle file. This is the string passed when executing the CLI command. ('ios'/'android')
+   * @param identifier An additional identifier string. This can be used to distinguish execution environments by incorporating it into the upload path or file name. This string is passed when executing the CLI command.
+   */
+  bundleUploader: (
+      source: string,
+      platform: "ios" | "android",
+      identifier?: string,
+  ) => Promise<{downloadUrl: string}>;
+
+  /**
+   * Interface that must be implemented to retrieve ReleaseHistory information.
+   *
+   * Use `fetch`, `axios`, or similar methods to fetch the data and return it.
+   *
+   * @param targetBinaryVersion The target binary app version for which ReleaseHistory information is retrieved. This string is passed when executing the CLI command. (e.g., '1.0.0')
+   * @param platform The target platform for which the information is retrieved. This string is passed when executing the CLI command. ('ios'/'android')
+   * @param identifier An additional identifier string. This string is passed when executing the CLI command.
+   */
+  getReleaseHistory: (
+      targetBinaryVersion: string,
+      platform: "ios" | "android",
+      identifier?: string,
+  ) => Promise<ReleaseHistoryInterface>;
+
+  /**
+   * Interface that must be implemented to create or update ReleaseHistory information.
+   *
+   * Used in the `create-history`, `release`, and `update-history` commands.
+   * The created or modified object and the JSON file path containing the result of the command execution are provided.
+   * Implement this function to upload the file or call a REST API to update the release history.
+   *
+   * @param targetBinaryVersion The target binary app version for the ReleaseHistory. This string is passed when executing the CLI command. (e.g., '1.0.0')
+   * @param jsonFilePath The absolute path to a JSON file following the `ReleaseHistoryInterface` structure. The file is created in the project's root directory and deleted when the command execution completes.
+   * @param releaseInfo A plain object following the `ReleaseHistoryInterface` structure.
+   * @param platform The target platform. This string is passed when executing the CLI command. ('ios'/'android')
+   * @param identifier An additional identifier string. This string is passed when executing the CLI command.
+   */
+  setReleaseHistory: (
+      targetBinaryVersion: string,
+      jsonFilePath: string,
+      releaseInfo: ReleaseHistoryInterface,
+      platform: "ios" | "android",
+      identifier?: string,
+  ) => Promise<void>;
+}
+
+export interface CodePushContextType {
+    isUpdateAvailable: boolean;
+    updateInfo: UpdateCheckResponse;
+    checkUpdate: () => Promise<void>;
+    applyUpdate: () => Promise<void>;
+}
+
+export default IOLift;

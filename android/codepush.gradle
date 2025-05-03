@@ -2,15 +2,17 @@
 
 import java.nio.file.Paths;
 
+// 기본 설정 - React 관련 설정을 가져오고 번들 에셋 이름을 설정합니다
 def config = project.extensions.findByName("react") ?: [:]
 def bundleAssetName = config.bundleAssetName ? config.bundleAssetName.get() : "index.android.bundle"
 
-// because elvis operator
+// 엘비스 연산자를 사용하여 파일 객체를 생성하는 유틸리티 함수
 def elvisFile(thing) {
     return thing ? file(thing) : null;
 }
 
-void runBefore(String dependentTaskName, Task task) {
+// 주어진 태스크가 다른 태스크를 실행하기 전에 실행되도록 설정하는 함수
+def runBefore(String dependentTaskName, Task task) {
     Task dependentTask = tasks.findByPath(dependentTaskName);
     if (dependentTask != null) {
         dependentTask.dependsOn task
@@ -18,30 +20,15 @@ void runBefore(String dependentTaskName, Task task) {
 }
 
 /**
- * Finds the path of the installed npm package with the given name using Node's
- * module resolution algorithm, which searches "node_modules" directories up to
- * the file system root. This handles various cases, including:
- *
- *   - Working in the open-source RN repo:
- *       Gradle: /path/to/react-native/ReactAndroid
- *       Node module: /path/to/react-native/node_modules/[package]
- *
- *   - Installing RN as a dependency of an app and searching for hoisted
- *     dependencies:
- *       Gradle: /path/to/app/node_modules/react-native/ReactAndroid
- *       Node module: /path/to/app/node_modules/[package]
- *
- *   - Working in a larger repo (e.g., Facebook) that contains RN:
- *       Gradle: /path/to/repo/path/to/react-native/ReactAndroid
- *       Node module: /path/to/repo/node_modules/[package]
- *
- * The search begins at the given base directory (a File object). The returned
- * path is a string.
+ * Node의 모듈 해결 알고리즘을 사용하여 지정된 이름의 npm 패키지 경로를 찾는 함수
+ * 이 함수는 다양한 프로젝트 구조에서 모듈을 찾을 수 있도록 설계되었습니다:
+ *   - React Native 오픈소스 저장소에서 작업하는 경우
+ *   - 앱의 종속성으로 RN을 설치하고 호이스팅된 종속성을 검색하는 경우
+ *   - RN을 포함하는 더 큰 저장소(예: Facebook)에서 작업하는 경우
  */
 static def findNodeModulePath(baseDir, packageName) {
     def basePath = baseDir.toPath().normalize()
-    // Node's module resolution algorithm searches up to the root directory,
-    // after which the base path will be null
+    // Node의 모듈 해결 알고리즘은 루트 디렉토리까지 검색함
     while (basePath) {
         def candidatePath = Paths.get(basePath.toString(), "node_modules", packageName)
         if (candidatePath.toFile().exists()) {
@@ -52,21 +39,25 @@ static def findNodeModulePath(baseDir, packageName) {
     return null
 }
 
+// 모든 빌드 타입에 대해 CodePush가 사용할 빌드 시간 값을 설정
+// strings.xml에서 잘못된 long 값 복원을 방지하기 위해 이중 따옴표로 감싸야 함
 android.buildTypes.each { buildType ->
-    // to prevent incorrect long value restoration from strings.xml we need to wrap it with double quotes
     // https://github.com/microsoft/cordova-plugin-code-push/issues/264
     buildType.resValue 'string', "CODE_PUSH_APK_BUILD_TIME", String.format("\"%d\"", System.currentTimeMillis())
 }
 
 gradle.projectsEvaluated {
+    // 디버그 가능한 변형(variants)을 설정 - 기본값은 ['debug']
     def debuggableVariants = config.debuggableVariants ? config.debuggableVariants.get() : ['debug']
 
+    // 각 Android 애플리케이션 변형(variant)에 대해 처리
     android.applicationVariants.all { variant ->
-        // No code push for debuggable variants
+        // 디버그 가능한 변형에는 코드 푸시를 적용하지 않음
         if (debuggableVariants.contains(variant.name)) {
             return;
         }
 
+        // IOLift 노드 모듈 경로 찾기
         def nodeModulesPath;
         if (project.hasProperty('nodeModulesPath')) {
             nodeModulesPath = "${project.nodeModulesPath}/@fcg-labs/iolift"
@@ -74,33 +65,39 @@ gradle.projectsEvaluated {
             nodeModulesPath = findNodeModulePath(projectDir, "@fcg-labs/iolift")
         }
 
+        // 변형별 이름과 경로 설정
         def targetName = variant.name.capitalize()
         def targetPath = variant.dirName
 
+        // JS 번들 및 리소스 디렉토리 설정
         def jsBundleDir;
         def resourcesDir;
         def jsBundleFile;
 
-        // Additional node commandline arguments
+        // 노드 실행 명령 및 추가 패키저 인수 설정
         def nodeExecutableAndArgs = config.nodeExecutableAndArgs ? config.nodeExecutableAndArgs.get(): ["node"]
         def extraPackagerArgs = config.extraPackagerArgs ? config.extraPackagerArgs.get() : []
 
         // Make this task run right after the bundle task
         def generateBundledResourcesHash;
 
+        // React 번들 태스크가 존재하는 경우와 존재하지 않는 경우를 다르게 처리
         def reactBundleTask = tasks.findByName("createBundle${targetName}JsAndAssets")
         if (reactBundleTask) {
+            // React 번들 태스크가 존재하는 경우 (예: React Native 0.71+ 버전)
             jsBundleDir = reactBundleTask.property('jsBundleDir').asFile.get()
             resourcesDir = reactBundleTask.property('resourcesDir').asFile.get()
 
-            // mitigates Resource and asset merger: Duplicate resources error
+            // 리소스 중복 오류 방지를 위한 디렉토리 정리
             project.delete(files("${jsBundleDir}"))
             
+            // 필요한 디렉토리 생성
             jsBundleDir.mkdirs()
             resourcesDir.mkdirs()
 
             jsBundleFile = file("$jsBundleDir/$bundleAssetName")
 
+            // 번들 리소스 해시 생성 태스크
             generateBundledResourcesHash = tasks.create(
                     name: "generateBundledResourcesHash${targetName}",
                     type: Exec) {
@@ -109,9 +106,11 @@ gradle.projectsEvaluated {
                 enabled !debuggableVariants.contains(variant.name) ?: targetName.toLowerCase().contains("release")
             }
 
+            // 리소스 및 에셋 병합 전에 해시 생성 태스크 실행
             runBefore("merge${targetName}Resources", generateBundledResourcesHash)
             runBefore("merge${targetName}Assets", generateBundledResourcesHash)
         } else {
+            // React 번들 태스크가 존재하지 않는 경우 (예: 구버전 React Native)
             def jsBundleDirConfigName = "jsBundleDir${targetName}"
             jsBundleDir = elvisFile(config."$jsBundleDirConfigName") ? elvisFile(config."$jsBundleDirConfigName").get():
                     file("$buildDir/intermediates/assets/${targetPath}")
@@ -120,9 +119,7 @@ gradle.projectsEvaluated {
             resourcesDir = elvisFile(config."${resourcesDirConfigName}") ? elvisFile(config."${resourcesDirConfigName}").get():
                     file("$buildDir/intermediates/res/merged/${targetPath}")
 
-            // In case version of 'Android Plugin for Gradle'' is lower than 1.3.0
-            // '$buildDir' has slightly different structure - 'merged' folder
-            // does not exists so '${targetPath}' folder contains directly in 'res' folder.
+            // 구버전 Android Gradle 플러그인 대응 (1.3.0 미만)
             if (!resourcesDir.exists() && file("$buildDir/intermediates/res/${targetPath}").exists()) {
                 resourcesDir = file("$buildDir/intermediates/res/${targetPath}")
             }
@@ -131,29 +128,33 @@ gradle.projectsEvaluated {
 
             def resourcesMapTempFileName = "CodePushResourcesMap-" + java.util.UUID.randomUUID().toString().substring(0,8) + ".json"
 
+            // 번들 리소스 해시 생성 태스크
             generateBundledResourcesHash = tasks.create(
                     name: "generateBundledResourcesHash${targetName}",
                     type: Exec) {
                 commandLine (*nodeExecutableAndArgs, "${nodeModulesPath}/scripts/generateBundledResourcesHash.js", resourcesDir, jsBundleFile, jsBundleDir, resourcesMapTempFileName)
             }
 
-            // Make this task run right before the bundle task
+            // 번들 명령 전에 파일을 기록하는 태스크
             def recordFilesBeforeBundleCommand = tasks.create(
                     name: "recordFilesBeforeBundleCommand${targetName}",
                     type: Exec) {
                 commandLine (*nodeExecutableAndArgs, "${nodeModulesPath}/scripts/recordFilesBeforeBundleCommand.js", resourcesDir, resourcesMapTempFileName)
             }
 
+            // 리소스 및 에셋 병합 후, 번들링 전에 파일 기록 태스크 실행
             recordFilesBeforeBundleCommand.dependsOn("merge${targetName}Resources")
             recordFilesBeforeBundleCommand.dependsOn("merge${targetName}Assets")
             runBefore("bundle${targetName}JsAndAssets", recordFilesBeforeBundleCommand)
 
-            // We need to generate and record the resources map, but we use it to generate the bundle hash
+            // 리소스 맵 생성 및 기록 후 번들 해시 생성
             generateBundledResourcesHash.dependsOn("recordFilesBeforeBundleCommand${targetName}")
         }
 
+        // JS 번들 생성 후 해시 생성 태스크 실행
         generateBundledResourcesHash.dependsOn("createBundle${targetName}JsAndAssets")
 
+        // 다양한 아키텍처별 리소스 처리 전에 해시 생성 태스크 실행
         runBefore("processArmeabi-v7a${targetName}Resources", generateBundledResourcesHash)
         runBefore("processX86${targetName}Resources", generateBundledResourcesHash)
         runBefore("processUniversal${targetName}Resources", generateBundledResourcesHash)

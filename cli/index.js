@@ -10,7 +10,7 @@ shell.set("+v");
 program
   .name("npx code-push")
   .description("Command line interface for @fcg-labs/iolift")
-  .version("1.0.0")
+  .version("0.1.0")
   .action(() => {
     showLogo();
   });

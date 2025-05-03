@@ -1,10 +1,9 @@
 import { NativeEventEmitter } from "react-native";
-import log from "./logging";
 
 // This function is used to augment remote and local
 // package objects with additional functionality/properties
 // beyond what is included in the metadata sent by the server.
-module.exports = (NativeCodePush) => {
+export default (NativeCodePush) => {
   const remote = () => {
     return {
       async download(downloadProgressCallback) {
