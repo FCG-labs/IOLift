@@ -46,8 +46,8 @@
     "tslint": "tslint -c tslint.json test/**/*.ts",
     "publish": "npm publish --access=public",
     "eslint": "eslint --quiet .",
-    "jest": "jest versioning/*",
-    "build": "tsc"
+    "jest": "jest src/versioning/*",
+    "build": "npm run eslint && tsc && npm run jest"
   },
   "repository": {
     "type": "git",

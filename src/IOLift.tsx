@@ -3,7 +3,7 @@ import React from 'react';
 import { AppState, Platform, NativeModules } from "react-native";
 import log from "./logging";
 import hoistStatics from 'hoist-non-react-statics';
-import { SemverVersioning } from '../versioning/SemverVersioning'
+import { SemverVersioning } from './versioning/SemverVersioning'
 import packageMixins from "./package-mixins";
 
 const NativeCodePush = NativeModules.CodePush;
@@ -322,7 +322,7 @@ function validateRollbackRetryOptions(rollbackRetryOptions) {
 }
 
 async function restartApp(onlyIfUpdateIsPending = false) {
-  NativeCodePush.restartApp(onlyIfUpdateIsPending);
+  return await NativeCodePush.restartApp(onlyIfUpdateIsPending);
 }
 
 // This function allows only one syncInternal operation to proceed at any given time.
