@@ -48,7 +48,7 @@
     "eslint": "eslint --quiet .",
     "jest": "jest src/versioning/*",
     "build": "npm run eslint && npm run jest && tsc",
-    "postinstall": "node ./scripts/postlink/run"
+    "postinstall": "node node_modules/@fcg-labs/iolift/scripts/postlink/run"
   },
   "repository": {
     "type": "git",
