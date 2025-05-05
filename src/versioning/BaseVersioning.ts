@@ -2,6 +2,7 @@
  * @type {BaseVersioning}
  */
 class BaseVersioning {
+  [x: string]: any;
   /**
    * @param {ReleaseHistoryInterface} releaseHistory
    * @param {SortingMethod} sortingMethod
@@ -14,13 +15,10 @@ class BaseVersioning {
       throw new Error("param releaseHistory and sortingMethod is needed");
     }
 
-    /** @type {SortingMethod} */
     this.sortingMethod = sortingMethod;
 
-    /** @type {ReleaseHistoryInterface} */
     this.originalReleaseHistory = releaseHistory;
 
-    /** @type {[ReleaseVersion, ReleaseInfo][]} */
     this.sortedReleaseHistory = Object.entries(releaseHistory).sort(
       ([a], [b]) => this.sortingMethod(a, b)
     );
@@ -123,4 +121,4 @@ class BaseVersioning {
   }
 }
 
-module.exports = { BaseVersioning: BaseVersioning };
+export default BaseVersioning;

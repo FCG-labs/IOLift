@@ -14,10 +14,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const react_1 = __importDefault(require("react"));
 const react_native_1 = require("react-native");
-const logging_1 = __importDefault(require("./logging"));
+const logging_1 = __importDefault(require("~/logging"));
 const hoist_non_react_statics_1 = __importDefault(require("hoist-non-react-statics"));
-const SemverVersioning_1 = require("./versioning/SemverVersioning");
-const package_mixins_1 = __importDefault(require("./package-mixins"));
+const SemverVersioning_1 = __importDefault(require("~/versioning/SemverVersioning"));
+const package_mixins_1 = __importDefault(require("~/package-mixins"));
 const NativeCodePush = react_native_1.NativeModules.CodePush;
 const PackageMixins = (0, package_mixins_1.default)(NativeCodePush);
 if (!react_1.default || typeof react_1.default.Component !== 'function') {
@@ -57,7 +57,7 @@ function checkForUpdate(handleBinaryVersionMismatchCallback = null) {
                 else {
                     const releaseHistory = yield sharedCodePushOptions.releaseHistoryFetcher(updateRequest);
                     const runtimeVersion = updateRequest.label;
-                    const versioning = new SemverVersioning_1.SemverVersioning(releaseHistory);
+                    const versioning = new SemverVersioning_1.default(releaseHistory);
                     const shouldRollbackToBinary = versioning.shouldRollbackToBinary(runtimeVersion);
                     if (shouldRollbackToBinary) {
                         IOLift.clearUpdates();

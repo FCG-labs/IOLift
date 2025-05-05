@@ -1,4 +1,4 @@
-import { BaseVersioning } from "./BaseVersioning"
+import BaseVersioning from "./BaseVersioning"
 
 describe('BaseVersioning', () => {
     describe('constructor', () => {

@@ -1,0 +1,1 @@
+{"version":3,"file":"IncrementalVersioning.js","sourceRoot":"","sources":["../../../src/versioning/IncrementalVersioning.ts"],"names":[],"mappings":";;;;;AAAA,sEAA8C;AAG9C,MAAM,qBAAsB,SAAQ,wBAAc;IAChD,YAAY,cAAuC;QACjD,KAAK,CAAC,cAAc,EAAE,CAAC,EAAU,EAAE,EAAU,EAAE,EAAE,CAAC,MAAM,CAAC,EAAE,CAAC,GAAG,MAAM,CAAC,EAAE,CAAC,CAAC,CAAC;IAC7E,CAAC;CACF;AAED,kBAAe,qBAAqB,CAAC"}

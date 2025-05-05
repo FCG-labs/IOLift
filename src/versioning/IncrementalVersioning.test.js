@@ -1,4 +1,4 @@
-import { IncrementalVersioning } from "./IncrementalVersioning"
+import IncrementalVersioning from "./IncrementalVersioning"
 
 describe('Incremental Versioning Test', () => {
     const MOCK_INFOS = { downloadUrl: '', packageHash: '' }

@@ -1,4 +1,4 @@
-import { SemverVersioning } from "./SemverVersioning";
+import SemverVersioning from "./SemverVersioning";
 
 describe('Semver Versioning Test', () => {
     const MOCK_INFOS = { downloadUrl: '', packageHash: '' }
