@@ -84,19 +84,19 @@ public class CodePush implements ReactPackage {
         initializeUpdateAfterRestart();
     }
 
-    public CodePush(Context context, boolean isDebugMode, String serverUrl) {
-        this(context, isDebugMode);
+    public CodePush(String deploymentKey, Context context, boolean isDebugMode, String serverUrl) {
+        this(deploymentKey, context, isDebugMode);
         mServerUrl = serverUrl;
     }
 
-    public CodePush(Context context, boolean isDebugMode, int publicKeyResourceDescriptor) {
-        this(context, isDebugMode);
+    public CodePush(String deploymentKey, Context context, boolean isDebugMode, int publicKeyResourceDescriptor) {
+        this(deploymentKey, context, isDebugMode);
 
         mPublicKey = getPublicKeyByResourceDescriptor(publicKeyResourceDescriptor);
     }
 
-    public CodePush(Context context, boolean isDebugMode, String serverUrl, Integer publicKeyResourceDescriptor) {
-        this(context, isDebugMode);
+    public CodePush(String deploymentKey, Context context, boolean isDebugMode, String serverUrl, Integer publicKeyResourceDescriptor) {
+        this(deploymentKey, context, isDebugMode);
 
         if (publicKeyResourceDescriptor != null) {
             mPublicKey = getPublicKeyByResourceDescriptor(publicKeyResourceDescriptor);
