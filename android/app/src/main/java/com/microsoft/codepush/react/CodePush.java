@@ -50,6 +50,10 @@ public class CodePush implements ReactPackage {
     private static ReactInstanceHolder mReactInstanceHolder;
     private static CodePush mCurrentInstance;
 
+    public CodePush(String deploymentKey, Context context) {
+        this(deploymentKey, context, false);
+    }
+
     public static String getServiceUrl() {
         return mServerUrl;
     }

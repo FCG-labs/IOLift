@@ -113,7 +113,7 @@ public class CodePushTelemetryManager {
         if (statusReport.hasKey(STATUS_KEY) && DEPLOYMENT_FAILED_STATUS.equals(statusReport.getString(STATUS_KEY))) {
             return;
         }
-        
+
         if (statusReport.hasKey(APP_VERSION_KEY)) {
             saveStatusReportedForIdentifier(statusReport.getString(APP_VERSION_KEY));
         } else if (statusReport.hasKey(PACKAGE_KEY)) {

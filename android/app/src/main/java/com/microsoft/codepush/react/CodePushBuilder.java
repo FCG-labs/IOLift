@@ -10,8 +10,8 @@ public class CodePushBuilder {
     private String mServerUrl;
     private Integer mPublicKeyResourceDescriptor;
 
-    public CodePushBuilder(Context context) {
-        this.mDeploymentKey = "deprecated_deployment_key";
+    public CodePushBuilder(String deploymentKey, Context context) {
+        this.mDeploymentKey = deploymentKey;
         this.mContext = context;
         this.mServerUrl = CodePush.getServiceUrl();
     }
