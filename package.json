@@ -1,6 +1,6 @@
 {
   "name": "@fcg-labs/iolift",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "FCGLabs Codepush for RN",
   "main": "bin/src/IOLift.js",
   "types": "bin/src/IOLift.d.ts",
@@ -47,7 +47,8 @@
     "publish": "npm publish --access=public",
     "eslint": "eslint --quiet .",
     "jest": "jest src/versioning/*",
-    "build": "npm run eslint && npm run jest && tsc"
+    "build": "npm run eslint && npm run jest && tsc",
+    "postinstall": "node ./scripts/postlink/run"
   },
   "repository": {
     "type": "git",
