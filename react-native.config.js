@@ -4,7 +4,7 @@ module.exports = {
             android: {
                 packageImportPath: "import com.microsoft.codepush.react.CodePush;",
                 packageInstance:
-                    "new CodePush(null,this)"
+                    "new CodePush(null,getApplicationContext())"
             }
         }
     }

@@ -27,7 +27,9 @@
     "README.md",
     "LICENSE",
     "versioning",
-    "test"
+    "test",
+    "react-native.config.js",
+    "CodePush.podspec"
   ],
   "scripts": {
     "clean": "shx rm -rf bin",
@@ -111,7 +113,7 @@
   },
   "rnpm": {
     "android": {
-      "packageInstance": "new CodePush(null,this)"
+      "packageInstance": "new CodePush(null,getApplicationContext())"
     },
     "ios": {
       "sharedLibraries": [
