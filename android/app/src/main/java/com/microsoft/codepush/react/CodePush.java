@@ -50,20 +50,16 @@ public class CodePush implements ReactPackage {
     private static ReactInstanceHolder mReactInstanceHolder;
     private static CodePush mCurrentInstance;
 
-    public CodePush(Context context) {
-        this(context, false);
-    }
-
     public static String getServiceUrl() {
         return mServerUrl;
     }
 
-    public CodePush(Context context, boolean isDebugMode) {
+    public CodePush(String deploymentKey, Context context, boolean isDebugMode) {
         mContext = context.getApplicationContext();
 
         mUpdateManager = new CodePushUpdateManager(context.getFilesDir().getAbsolutePath());
         mTelemetryManager = new CodePushTelemetryManager(mContext);
-        mDeploymentKey = "deprecated_deployment_key";
+        mDeploymentKey = deploymentKey;
         mIsDebugMode = isDebugMode;
         mSettingsManager = new SettingsManager(mContext);
 
