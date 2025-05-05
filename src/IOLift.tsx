@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-namespace */
 import React from 'react';
 import { AppState, Platform, NativeModules } from "react-native";
-import log from "~/logging";
+import log from "./logging";
 import hoistStatics from 'hoist-non-react-statics';
-import SemverVersioning from '~/versioning/SemverVersioning'
-import packageMixins from "~/package-mixins";
+import SemverVersioning from './versioning/SemverVersioning'
+import packageMixins from "./package-mixins";
 
 const NativeCodePush = NativeModules.CodePush;
 const PackageMixins = packageMixins(NativeCodePush);
