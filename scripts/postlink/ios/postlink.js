@@ -4,8 +4,11 @@ const fs = require("fs");
 const inquirer = require('inquirer');
 const plist = require("plist");
 const semver = require('semver');
+// scripts/postlink/run.js
+const loadProjectPackageJson = require('../../utils/loadProjectPackageJson');
+const package = loadProjectPackageJson();
 
-const package = require('../../../../package.json');
+console.log('Project using iolift:', package.name);
 
 module.exports = () => {
 

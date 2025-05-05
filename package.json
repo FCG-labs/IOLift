@@ -1,6 +1,6 @@
 {
   "name": "@fcg-labs/iolift",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "FCGLabs Codepush for RN",
   "main": "bin/src/IOLift.js",
   "types": "bin/src/IOLift.d.ts",
