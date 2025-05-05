@@ -11,47 +11,48 @@
  * manifest to generate the final hash, which is saved to the APK's assets directory.
  */
 
-var crypto = require("crypto");
-var fs = require("fs");
-var path = require("path");
+const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
 
-var getFilesInFolder = require("./getFilesInFolder");
+const getFilesInFolder = require("./getFilesInFolder");
 
-var CODE_PUSH_FOLDER_PREFIX = "CodePush";
-var CODE_PUSH_HASH_FILE_NAME = "CodePushHash";
-var CODE_PUSH_HASH_OLD_FILE_NAME = "CodePushHash.json";
-var HASH_ALGORITHM = "sha256";
+const CODE_PUSH_FOLDER_PREFIX = "CodePush";
+const CODE_PUSH_HASH_FILE_NAME = "CodePushHash";  
+const CODE_PUSH_HASH_OLD_FILE_NAME = "CodePushHash.json";
+const HASH_ALGORITHM = "sha256";
 
-var resourcesDir = process.argv[2];
-var jsBundleFilePath = process.argv[3];
-var assetsDir = process.argv[4];
-var tempFileName = process.argv[5];
+const resourcesDir = process.argv[2];
+const jsBundleFilePath = process.argv[3];
+const assetsDir = process.argv[4];
+const tempFileName = process.argv[5];
 
-var oldFileToModifiedTimeMap = {};
-var tempFileLocalPath = null;
+let oldFileToModifiedTimeMap = {};
+let tempFileLocalPath = null;
 if (tempFileName) {
-    tempFileLocalPath = path.join(require("os").tmpdir(), tempFileName);
+    tempFileLocalPath = path.join(os.tmpdir(), tempFileName);
     oldFileToModifiedTimeMap = require(tempFileLocalPath);
 }
-var resourceFiles = [];
+let resourceFiles = [];
 
 getFilesInFolder(resourcesDir, resourceFiles);
 
-var newFileToModifiedTimeMap = {};
+let newFileToModifiedTimeMap = {};
 
 resourceFiles.forEach(function(resourceFile) {
     newFileToModifiedTimeMap[resourceFile.path.substring(resourcesDir.length)] = resourceFile.mtime;
 });
 
-var bundleGeneratedAssetFiles = [];
+let bundleGeneratedAssetFiles = [];
 
-for (var newFilePath in newFileToModifiedTimeMap) {
+for (const newFilePath in newFileToModifiedTimeMap) {
     if (!oldFileToModifiedTimeMap[newFilePath] || oldFileToModifiedTimeMap[newFilePath] < newFileToModifiedTimeMap[newFilePath].getTime()) {
         bundleGeneratedAssetFiles.push(newFilePath);
     }
 }
 
-var manifest = [];
+let manifest = [];
 
 if (bundleGeneratedAssetFiles.length) {
     bundleGeneratedAssetFiles.forEach(function(assetFile) {
@@ -68,23 +69,23 @@ if (bundleGeneratedAssetFiles.length) {
 
 function addJsBundleAndMetaToManifest() {
     addFileToManifest(path.dirname(jsBundleFilePath), path.basename(jsBundleFilePath), manifest, function() {
-        var jsBundleMetaFilePath = jsBundleFilePath + ".meta";
+        const jsBundleMetaFilePath = jsBundleFilePath + ".meta";
         addFileToManifest(path.dirname(jsBundleMetaFilePath), path.basename(jsBundleMetaFilePath), manifest, function() {
             manifest = manifest.sort();
-            var finalHash = crypto.createHash(HASH_ALGORITHM)
+            const finalHash = crypto.createHash(HASH_ALGORITHM)
                 .update(JSON.stringify(manifest))
                 .digest("hex");
 
             console.log(finalHash);
 
-            var savedResourcesManifestPath = assetsDir + "/" + CODE_PUSH_HASH_FILE_NAME;
+            const savedResourcesManifestPath = assetsDir + "/" + CODE_PUSH_HASH_FILE_NAME;
             fs.writeFileSync(savedResourcesManifestPath, finalHash);
 
             // "CodePushHash.json" file name breaks flow type checking.
             // To fix the issue we need to delete "CodePushHash.json" file and
             // use "CodePushHash" file name instead to store the hash value.
             // Relates to https://github.com/microsoft/react-native-code-push/issues/577
-            var oldSavedResourcesManifestPath = assetsDir + "/" + CODE_PUSH_HASH_OLD_FILE_NAME;
+            const oldSavedResourcesManifestPath = assetsDir + "/" + CODE_PUSH_HASH_OLD_FILE_NAME;
             if (fs.existsSync(oldSavedResourcesManifestPath)) {
                 fs.unlinkSync(oldSavedResourcesManifestPath);
             }
@@ -93,14 +94,14 @@ function addJsBundleAndMetaToManifest() {
 }
 
 function addFileToManifest(folder, assetFile, manifest, done) {
-    var fullFilePath = path.join(folder, assetFile);
+    const fullFilePath = path.join(folder, assetFile);
     if (!fileExists(fullFilePath)) {
         done();
         return;
     }
 
-    var readStream = fs.createReadStream(path.join(folder, assetFile));
-    var hashStream = crypto.createHash(HASH_ALGORITHM);
+    const readStream = fs.createReadStream(path.join(folder, assetFile));
+    const hashStream = crypto.createHash(HASH_ALGORITHM);
 
     readStream.pipe(hashStream)
         .on("error", function(error) {
@@ -108,8 +109,8 @@ function addFileToManifest(folder, assetFile, manifest, done) {
         })
         .on("finish", function() {
             hashStream.end();
-            var buffer = hashStream.read();
-            var fileHash = buffer.toString("hex");
+            const buffer = hashStream.read();
+            const fileHash = buffer.toString("hex");
             manifest.push(path.join(CODE_PUSH_FOLDER_PREFIX, assetFile).replace(/\\/g, "/") + ":" + fileHash);
             done();
         });

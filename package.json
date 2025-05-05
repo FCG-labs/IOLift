@@ -104,5 +104,19 @@
     "transform": {
       "^.+\\.(js|jsx|ts|tsx)$": "babel-jest"
     }
+  },
+  "rnpm": {
+    "android": {
+      "packageInstance": "new CodePush(null,this)"
+    },
+    "ios": {
+      "sharedLibraries": [
+        "libz"
+      ]
+    },
+    "commands": {
+      "postlink": "node node_modules/@fcg-labs/iolift/scripts/postlink/run",
+      "postunlink": "node node_modules/@fcg-labs/iolift/scripts/postunlink/run"
+    }
   }
 }
