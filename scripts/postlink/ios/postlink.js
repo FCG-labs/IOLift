@@ -5,7 +5,7 @@ const inquirer = require('inquirer');
 const plist = require("plist");
 const semver = require('semver');
 
-const package = require('../../../../../package.json');
+const package = require('../../../../package.json');
 
 module.exports = () => {
 

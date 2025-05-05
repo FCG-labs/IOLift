@@ -9,9 +9,9 @@ Pod::Spec.new do |s|
   s.author         = package['author']
   s.license        = package['license']
   s.homepage       = package['homepage']
-  s.source         = { :git => 'https://github.com/Soomgo-Mobile/react-native-code-push.git', :tag => "v#{s.version}"}
-  s.ios.deployment_target = '9.0'
-  s.tvos.deployment_target = '9.0'
+  s.source         = { :git => 'https://github.com/FCG-labs/IOLift.git', :tag => "v#{s.version}"}
+  s.ios.deployment_target = '11.0'
+  s.tvos.deployment_target = '11.0'
   s.preserve_paths = '*.js'
   s.library        = 'z'
   s.source_files = 'ios/CodePush/*.{h,m}'
