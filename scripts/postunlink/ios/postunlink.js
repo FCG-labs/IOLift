@@ -3,7 +3,8 @@ const linkTools = require('../../tools/linkToolsIos');
 const fs = require("fs");
 const plist = require("plist");
 const semver = require('semver');
-const packageFile = require('../../../../../package.json');
+const loadProjectPackageJson = require('../../utils/loadProjectPackageJson');
+const packageFile = loadProjectPackageJson();
 
 module.exports = () => {
 

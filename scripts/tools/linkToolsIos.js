@@ -1,7 +1,8 @@
 const glob = require("glob");
 const path = require("path");
 const xcode = require("xcode");
-const packageFile = require('../../../../package.json');
+const loadProjectPackageJson = require('../utils/loadProjectPackageJson');
+const packageFile = loadProjectPackageJson();
 
 const ignoreNodeModules = { ignore: "node_modules/**" };
 const ignoreNodeModulesAndPods = { ignore: ["node_modules/**", "ios/Pods/**"] };
