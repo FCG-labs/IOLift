@@ -1296,12 +1296,6 @@ extern int ZEXPORT unzReadCurrentFile(unzFile file, voidp buf, unsigned len)
         // See: https://github.com/ZipArchive/ziparchive/issues/16
         //
         
-        /*
-        
-         
-         FIXME: Upgrading to minizip 1.1 caused issues here, Uncommented the code that was commented before. 11/24/2015
-         */
-        
         if (len > pfile_in_zip_read_info->rest_read_uncompressed)
             pfile_in_zip_read_info->stream.avail_out = (uInt)pfile_in_zip_read_info->rest_read_uncompressed;
         
