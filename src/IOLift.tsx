@@ -573,10 +573,16 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
  *   setOnSyncError(onSyncErrorFunction: (label: string, error: Error) => void | undefined): void,
  * }}
  */
+const noopReleaseHistoryFetcher: releaseHistoryFetcher = async () => ({})
+
 const sharedCodePushOptions = {
-  releaseHistoryFetcher: undefined,
+  releaseHistoryFetcher: noopReleaseHistoryFetcher,
   setReleaseHistoryFetcher(releaseHistoryFetcherFunction) {
-    if (!releaseHistoryFetcherFunction || typeof releaseHistoryFetcherFunction !== 'function') throw new Error('Please implement the releaseHistoryFetcher function');
+    if (!releaseHistoryFetcherFunction) {
+      this.releaseHistoryFetcher = noopReleaseHistoryFetcher;
+      return;
+    }
+    if (typeof releaseHistoryFetcherFunction !== 'function') throw new Error('Please implement the releaseHistoryFetcher function');
     this.releaseHistoryFetcher = releaseHistoryFetcherFunction;
   },
   updateChecker: undefined,
@@ -617,20 +623,22 @@ const sharedCodePushOptions = {
   },
 }
 
-function IOLift(options: CodePushOptions = {checkFrequency: IOLift.CheckFrequency.ON_APP_START, releaseHistoryFetcher: undefined}) {
-  if (options.updateChecker && !options.releaseHistoryFetcher) {
-    throw new Error('If you want to use `updateChecker`, pass a no-op function to releaseHistoryFetcher option. (e.g. `releaseHistoryFetcher: async () => ({})`)');
-  }
+function IOLift(options: Partial<CodePushOptions> = {}) {
+  const opts: CodePushOptions = {
+    checkFrequency: IOLift.CheckFrequency.ON_APP_START,
+    releaseHistoryFetcher: noopReleaseHistoryFetcher,
+    ...options
+  };
 
-  sharedCodePushOptions.setReleaseHistoryFetcher(options.releaseHistoryFetcher);
-  sharedCodePushOptions.setUpdateChecker(options.updateChecker);
+  sharedCodePushOptions.setReleaseHistoryFetcher(opts.releaseHistoryFetcher);
+  sharedCodePushOptions.setUpdateChecker(opts.updateChecker);
 
   // set telemetry callbacks
-  sharedCodePushOptions.setOnUpdateSuccess(options.onUpdateSuccess);
-  sharedCodePushOptions.setOnUpdateRollback(options.onUpdateRollback);
-  sharedCodePushOptions.setOnDownloadStart(options.onDownloadStart);
-  sharedCodePushOptions.setOnDownloadSuccess(options.onDownloadSuccess);
-  sharedCodePushOptions.setOnSyncError(options.onSyncError);
+  sharedCodePushOptions.setOnUpdateSuccess(opts.onUpdateSuccess);
+  sharedCodePushOptions.setOnUpdateRollback(opts.onUpdateRollback);
+  sharedCodePushOptions.setOnDownloadStart(opts.onDownloadStart);
+  sharedCodePushOptions.setOnDownloadSuccess(opts.onDownloadSuccess);
+  sharedCodePushOptions.setOnSyncError(opts.onSyncError);
 
   const decorator = (RootComponent) => {
     class CodePushComponent extends React.Component {
@@ -642,7 +650,7 @@ function IOLift(options: CodePushOptions = {checkFrequency: IOLift.CheckFrequenc
       }
 
       componentDidMount() {
-        if (options.checkFrequency === IOLift.CheckFrequency.MANUAL) {
+        if (opts.checkFrequency === IOLift.CheckFrequency.MANUAL) {
           IOLift.notifyAppReady();
         } else {
           const rootComponentInstance = this.rootComponentRef.current;
@@ -662,12 +670,12 @@ function IOLift(options: CodePushOptions = {checkFrequency: IOLift.CheckFrequenc
             handleBinaryVersionMismatchCallback = rootComponentInstance.codePushOnBinaryVersionMismatch.bind(rootComponentInstance);
           }
 
-          IOLift.sync(options, syncStatusCallback, downloadProgressCallback, handleBinaryVersionMismatchCallback);
+          IOLift.sync(opts, syncStatusCallback, downloadProgressCallback, handleBinaryVersionMismatchCallback);
 
-          if (options.checkFrequency === IOLift.CheckFrequency.ON_APP_RESUME) {
+          if (opts.checkFrequency === IOLift.CheckFrequency.ON_APP_RESUME) {
             AppState.addEventListener("change", (newState) => {
               if (newState === "active") {
-                IOLift.sync(options, syncStatusCallback, downloadProgressCallback);
+                IOLift.sync(opts, syncStatusCallback, downloadProgressCallback);
               }
             });
           }
@@ -1035,7 +1043,7 @@ export interface UpdateCheckResponse {
 
 export interface CodePushOptions extends SyncOptions {
     checkFrequency: IOLift.CheckFrequency;
-    releaseHistoryFetcher: (updateRequest: UpdateCheckRequest) => Promise<ReleaseHistoryInterface>;
+    releaseHistoryFetcher?: (updateRequest: UpdateCheckRequest) => Promise<ReleaseHistoryInterface>;
     updateChecker?: (updateRequest: UpdateCheckRequest) => Promise<{ update_info: UpdateCheckResponse }>;
     onUpdateSuccess?: (label: string) => void;
     onUpdateRollback?: (label: string) => void;
