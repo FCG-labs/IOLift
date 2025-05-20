@@ -159,12 +159,16 @@ NSString *const JWTAlgorithmNameRS512 = @"RS512";
     }
     else {
         SecKeyRef publicKey = [JWTCryptoSecurity publicKeyFromCertificate:key];
-        // TODO: special error handling here.
-        // add error handling later?
         if (publicKey != NULL) {
             BOOL verified = [self verifyData:hash witSignature:signature withKey:publicKey];
             CFRelease(publicKey);
             return verified;
+        } else {
+            if (error) {
+                *error = [NSError errorWithDomain:@"JWTAlgorithmRSBaseErrorDomain"
+                                             code:-1
+                                         userInfo:@{NSLocalizedDescriptionKey : @"Unable to create public key from certificate"}];
+            }
         }
     }
     return NO;
@@ -268,9 +272,6 @@ NSString *const JWTAlgorithmNameRS512 = @"RS512";
 
 
     BOOL success = transform != NULL;
-    //TODO: after import algorithm by pem, this code seems not working well.
-    //error: Error Domain=com.apple.security.transforms.error Code=6 "Invalid digest algorithm for RSA signature, choose one of: SHA1, SHA2 (512bits, 348bits, 256bits, or 224 bits), MD2, or MD5"
-    //TODO: add error inout parameter to this method.
     if (success) {
         // setup digest type
         success = SecTransformSetAttribute(transform, kSecDigestTypeAttribute, type, &errorRef);
