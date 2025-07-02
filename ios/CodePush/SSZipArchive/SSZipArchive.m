@@ -231,7 +231,6 @@
                 [directoriesModificationDates addObject: @{@"path": fullPath, @"modDate": modDate}];
             
             if ([fileManager fileExistsAtPath:fullPath] && !isDirectory && !overwrite) {
-                //FIXME: couldBe CRC Check?
                 unzCloseCurrentFile(zip);
                 ret = unzGoToNextFile(zip);
                 continue;

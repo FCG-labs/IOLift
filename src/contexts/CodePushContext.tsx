@@ -43,4 +43,10 @@ export const CodePushProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useCodePush = () => useContext(CodePushContext);
+export const useCodePush = () => {
+  const context = useContext(CodePushContext);
+  if (context === undefined) {
+    throw new Error('useCodePush must be used within a CodePushProvider');
+  }
+  return context;
+};
